@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from scipy.interpolate import make_interp_spline
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -43,6 +43,20 @@ def date_to_num(dates):
         num_time.append(num_date)
         num_date += 1
     return num_time
+
+
+def smooth_xy(lx, ly):
+    """数据平滑处理
+
+    :param lx: x轴数据，数组
+    :param ly: y轴数据，数组
+    :return: 平滑后的x、y轴数据，数组 [slx, sly]
+    """
+    x = np.array(lx)
+    y = np.array(ly)
+    x_smooth = np.linspace(x.min(), x.max(), 300)
+    y_smooth = make_interp_spline(x, y)(x_smooth)
+    return [x_smooth, y_smooth]
 
 
 db = pymysql.connect(host='rm-7xv6n273986pzur7e5o.mysql.rds.aliyuncs.com', user='data_process',
@@ -148,15 +162,23 @@ fig.suptitle(f'板块资金流向分析', fontsize=80)
 
 for i in tqdm(range(29)):
     for j in range(3):
-        if i * 3 + j >= len(list(total_amount_parts.keys())):
+        if i == 0 and j == 0:
+            ax[i, j].set_title(f'图例', fontsize=30)
+            ax[i, j].get_yaxis().set_visible(False)
+            ax[i, j].get_xaxis().set_visible(False)
+            line1, = ax[i, j].plot([], label='总持股股数', color='#4169E1')
+            line2, = ax[i, j].plot([], label='持股市值比例', color='orange')
+            ax[i, j].legend(handles=[line1, line2], loc='center', fontsize=30, frameon=False)  # ['总持股股数', '持股市值比例']
+            continue
+        if i * 3 + j - 1 >= len(list(total_amount_parts.keys())):
             break
         temp = []
-        for m in total_amount_parts[part_list[i * 3 + j]].index:
+        for m in total_amount_parts[part_list[i * 3 + j - 1]].index:
             temp.append(datetime.strftime(m, "%Y-%m-%d"))
         ax_kline = ax[i, j].twinx()
         temp_i = 0
         color_list = ['#FF0000', '#2E8B57']  # [红色, 绿色]
-        for kline in klines_parts[part_list[i * 3 + j]].values[-len(temp):]:
+        for kline in klines_parts[part_list[i * 3 + j - 1]].values[-len(temp):]:
             kline_open = kline[1]
             kline_close = kline[2]
             kline_high = kline[3]
@@ -172,17 +194,24 @@ for i in tqdm(range(29)):
                          bottom=min(kline_open, kline_close), color=color, width=0.5, align='center', alpha=0.85)
             ax_kline.get_yaxis().set_visible(False)
             temp_i += 1
-        ax[i, j].plot(temp, total_amount_parts[part_list[i * 3 + j]])
-        ax[i, j].set_title(f'{part_list[i * 3 + j]}', fontsize=30)
+        ax[i, j].plot(temp, total_amount_parts[part_list[i * 3 + j - 1]], color='#4169E1')
+        ax[i, j].set_title(f'{part_list[i * 3 + j - 1]}', fontsize=30)
+        ax[i, j].set_ylabel('总持股数', loc='top')
         # ax[i, j].spines['right'].set_visible(False)  # ax右轴隐藏
         ax_rate = ax[i, j].twinx()  # 创建与轴群ax共享x轴的轴群
-        ax_rate.plot(temp, total_value_parts_rate[part_list[i * 3 + j]], color='orange')
+        ax_rate.plot(temp, total_value_parts_rate[part_list[i * 3 + j - 1]], color='orange')
         ax_rate.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=2))
-        ax[i, j].set_xticks(temp[::len(temp) // 4])
+        ax_rate.set_ylabel('持股市值比例', loc='top')
+        rate_max = max(total_value_parts_rate[part_list[i * 3 + j - 1]].values)[0]
+        rate_min = min(total_value_parts_rate[part_list[i * 3 + j - 1]].values)[0]
+        amount_max = max(total_amount_parts[part_list[i * 3 + j - 1]].values)
+        amount_min = min(total_amount_parts[part_list[i * 3 + j - 1]].values)
+        ax_rate.set_ylim(bottom=rate_min * (1 - 0.15), top=rate_max * (1 + 0.15))
+        ax[i, j].set_ylim(bottom=amount_min * (1 - 0.15), top=amount_max * (1 + 0.15))
+        ax[i, j].set_xticks(temp[::len(temp) // 6])
         ax[i, j].grid(True)
 
-
-plt.subplots_adjust(top=0.95, bottom=0.016, hspace=0.25)
+plt.subplots_adjust(top=0.95, bottom=0.016, hspace=0.25, wspace=0.25)
 plt.savefig(f'D:\\fund flow\\FundFlow\\img\\departments_fund_flow\\amount\\板块资金流向分析.png')
 # plt.show()
 cursor.close()
