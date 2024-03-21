@@ -118,9 +118,9 @@ for belong_part in tqdm(part_list):
     if result == ():
         continue
     result = pd.DataFrame(result, columns=['total_daily_holding_amount', 'total_daily_holding_value', 'data_time'])
-    total_amount_parts[belong_part] = result.loc[:, 'total_daily_holding_amount']
+    total_amount_parts[belong_part] = result.loc[:, 'total_daily_holding_amount'] / 10000
     total_amount_parts[belong_part].index = result.loc[:, 'data_time']
-    total_value_parts[belong_part] = result.loc[:, 'total_daily_holding_value']
+    total_value_parts[belong_part] = result.loc[:, 'total_daily_holding_value'] / 10000
     total_value_parts[belong_part].index = result.loc[:, 'data_time']
 
 # temp_i = 0
@@ -142,7 +142,7 @@ for belong_part in tqdm(temp.columns):
         # {板块1: [日期1比率, 日期2比率...]}
         total_value_part_rate.append(temp.loc[i, belong_part] / sum(list(temp.loc[i, :])))
         # print(df_one_part)
-    total_value_parts_rate[belong_part] = pd.DataFrame(total_value_part_rate, index=temp.index)
+    total_value_parts_rate[belong_part] = pd.Series(total_value_part_rate, index=temp.index)
 
 num_date_list_of_total = []
 for i in date_list:
@@ -150,27 +150,30 @@ for i in date_list:
 
 temp_total_value_parts_rate = {}
 for belong_part in tqdm(part_list):
-    temp_total_value_parts_rate[belong_part] = (sum(np.array(total_value_parts_rate[belong_part].values))
-                                                / len(np.array(total_value_parts_rate[belong_part].values)))
+    temp_total_value_parts_rate[belong_part] = [(sum(np.array(total_value_parts_rate[belong_part]))
+                                                 / len(np.array(total_value_parts_rate[belong_part]))), ]
 df_temp_total_value_parts_rate = pd.DataFrame(temp_total_value_parts_rate).transpose()
 df_temp_total_value_parts_rate.sort_values(by=0, ascending=False, inplace=True)
 part_list = list(df_temp_total_value_parts_rate.index)
 
 # 构造当日持仓情况表格
-column_label = ['板块名称', '当日总持股数(万股)', '当日持股市值比例(%)']
-row_label = part_list[:45]
+column_label = ['板块名称', '当日总持股数(亿股)', '当日持股市值(亿元)', '当日持股市值比例(%)']
+row_label = part_list
 day_hold_table = []
 for belong_part in row_label:
-    row = [belong_part, int(total_amount_parts[belong_part].iloc[-1] / 10000),
-           round(total_value_parts_rate[belong_part].iloc[-1, -1] * 100, 2)]
+    row = [belong_part, round(total_amount_parts[belong_part].iloc[-1] / 100000000, 4),
+           round(total_value_parts[belong_part].iloc[-1] / 100000000, 4),
+           round(total_value_parts_rate[belong_part].iloc[-1] * 100, 2)]
     day_hold_table.append(row)
-day_hold_table = pd.DataFrame(day_hold_table)
-day_hold_table = np.array(pd.DataFrame(day_hold_table).sort_values(by=2, ascending=False))
-
+day_hold_table = pd.DataFrame(day_hold_table, columns=column_label)
+# day_hold_table.to_excel('D:\\fund flow\\FundFlow\\每日板块持仓情况.xlsx')
+day_hold_table.sort_values(by=column_label[-1], ascending=False).to_excel(
+    'D:\\fund flow\\FundFlow\\每日板块持仓情况(当日比例排序).xlsx', columns=column_label)
+day_hold_table = np.array(day_hold_table.sort_values(by=column_label[-1], ascending=False).iloc[:45, :])
 
 # 进行可视化(amount)
 plt.clf()
-fig, ax = plt.subplots(30, 3, figsize=(25, 125))
+fig, ax = plt.subplots(30, 3, figsize=(25, 175))
 fig.suptitle(f'板块资金流向分析\n{time.strftime("%Y-%m-%d", time.localtime())}', fontsize=80)
 # ax_table = fig.add_subplot(1, 1, 1)
 # ax_table.table(cellText=[[1,2],[4,5]])
@@ -183,8 +186,12 @@ for i in tqdm(range(30)):
             ax[i, j].spines['right'].set_visible(False)
             ax[i, j].spines['bottom'].set_visible(False)
             ax[i, j].spines['left'].set_visible(False)
+            # ax[i, j].set_fig(20, 20)
             t = ax[i, j].table(cellText=day_hold_table[15 * j:15 * j + 15], colLabels=column_label, loc='center',
-                               cellLoc='center', colColours=['#CDBE70', '#CDBE70', '#CDBE70']).set_fontsize(12)
+                               cellLoc='center', colColours=['#CDBE70', '#CDBE70', '#CDBE70', '#CDBE70'])
+            t.auto_set_font_size(False)
+            t.set_fontsize(20)
+            t.scale(2, 2)
             continue
         ax[0, 1].set_title(f'当日外资持仓情况', fontsize=30)
         if i == 1 and j == 0:
@@ -221,14 +228,14 @@ for i in tqdm(range(30)):
             temp_i += 1
         ax[i, j].plot(temp, total_amount_parts[part_list[(i - 1) * 3 + j - 1]], color='#4169E1')
         ax[i, j].set_title(f'{part_list[(i - 1) * 3 + j - 1]}', fontsize=30)
-        ax[i, j].set_ylabel('总持股数', loc='top')
+        ax[i, j].set_ylabel('总持股数', loc='top', fontsize=16)
         # ax[i, j].spines['right'].set_visible(False)  # ax右轴隐藏
         ax_rate = ax[i, j].twinx()  # 创建与轴群ax共享x轴的轴群
         ax_rate.plot(temp, total_value_parts_rate[part_list[(i - 1) * 3 + j - 1]], color='orange')
         ax_rate.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=2))
-        ax_rate.set_ylabel('持股市值比例', loc='top')
-        rate_max = max(total_value_parts_rate[part_list[(i - 1) * 3 + j - 1]].values)[0]
-        rate_min = min(total_value_parts_rate[part_list[(i - 1) * 3 + j - 1]].values)[0]
+        ax_rate.set_ylabel('持股市值比例', loc='top', fontsize=16)
+        rate_max = max(total_value_parts_rate[part_list[(i - 1) * 3 + j - 1]])
+        rate_min = min(total_value_parts_rate[part_list[(i - 1) * 3 + j - 1]])
         amount_max = max(total_amount_parts[part_list[(i - 1) * 3 + j - 1]].values)
         amount_min = min(total_amount_parts[part_list[(i - 1) * 3 + j - 1]].values)
         ax_rate.set_ylim(bottom=rate_min * (1 - 0.15), top=rate_max * (1 + 0.15))
@@ -236,11 +243,23 @@ for i in tqdm(range(30)):
         ax[i, j].set_xticks(temp[::len(temp) // 6])
         ax[i, j].grid(True)
 
-plt.subplots_adjust(top=0.95, bottom=0.016, hspace=0.25, wspace=0.25)
+plt.subplots_adjust(top=0.95, bottom=0.016, hspace=0.4, wspace=0.25)
+plt.savefig(
+    f'D:\\fund flow\\FundFlow\\img\\departments_fund_flow\\amount\\板块资金流向分析 {time.strftime("%Y-%m-%d", time.localtime())}.svg')
 plt.savefig(
     f'D:\\fund flow\\FundFlow\\img\\departments_fund_flow\\amount\\板块资金流向分析 {time.strftime("%Y-%m-%d", time.localtime())}.png')
 # plt.show()
 cursor.close()
 db.close()
 
+df_total_amount_parts = pd.DataFrame(total_amount_parts)
+df_total_amount_parts.to_excel('D:\\fund flow\\FundFlow\\58天板块总持股数持仓情况.xlsx',
+                               columns=list(df_total_amount_parts.columns),
+                               index_label=list(df_total_amount_parts.index),
+                               sheet_name='总持股数')
+df_total_value_parts_rate = pd.DataFrame(total_value_parts_rate)
+df_total_value_parts_rate.to_excel('D:\\fund flow\\FundFlow\\58天板块总市值占比情况.xlsx',
+                                   columns=list(df_total_value_parts_rate.columns),
+                                   index_label=list(df_total_value_parts_rate.index),
+                                   sheet_name='总市值占比')
 print('已完成')
