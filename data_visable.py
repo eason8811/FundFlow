@@ -156,6 +156,7 @@ plt.clf()
 fig = plt.figure(figsize=(30, 175))
 spec = fig.add_gridspec(nrows=30, ncols=3)
 fig.suptitle(f'板块资金流向分析\n{time.strftime("%Y-%m-%d", time.localtime())}', fontsize=80)
+days_num = 0    # 参与统计的天数
 for i in tqdm(range(30)):
     for j in range(3):
         if i < 1:
@@ -225,6 +226,7 @@ for i in tqdm(range(30)):
         ax.set_ylim(bottom=amount_min * (1 - 0.15), top=amount_max * (1 + 0.15))
         ax.set_xticks(temp[::len(temp) // 6])
         ax.grid(True)
+        days_num = len(temp)
 
 plt.subplots_adjust(top=0.95, bottom=0.016, hspace=0.35, wspace=0.25)
 plt.savefig(
@@ -236,12 +238,12 @@ cursor.close()
 db.close()
 
 df_total_amount_parts = pd.DataFrame(total_amount_parts)
-df_total_amount_parts.to_excel('D:\\fund flow\\FundFlow\\59天板块总持股数持仓情况.xlsx',
+df_total_amount_parts.to_excel(f'D:\\fund flow\\FundFlow\\{days_num}天板块总持股数持仓情况.xlsx',
                                columns=list(df_total_amount_parts.columns),
                                index_label=list(df_total_amount_parts.index),
                                sheet_name='总持股数')
 df_total_value_parts_rate = pd.DataFrame(total_value_parts_rate)
-df_total_value_parts_rate.to_excel('D:\\fund flow\\FundFlow\\59天板块总市值占比情况.xlsx',
+df_total_value_parts_rate.to_excel(f'D:\\fund flow\\FundFlow\\{days_num}天板块总市值占比情况.xlsx',
                                    columns=list(df_total_value_parts_rate.columns),
                                    index_label=list(df_total_value_parts_rate.index),
                                    sheet_name='总市值占比')
