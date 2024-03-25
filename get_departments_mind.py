@@ -50,9 +50,7 @@ def date_generater(day_amount=200):
     date_list.reverse()
     return date_list
 
-
-if __name__ == '__main__':
-    # get_departments_mind()
+def get_departments_mind():
 
     # 提取储存在数据库内的机构以及机构url
     # db = pymysql.connect(host='localhost', user='root', password='123456', port=3306, db='fund_flow', charset='utf8')
@@ -117,3 +115,8 @@ if __name__ == '__main__':
 
     cursor.close()
     db.close()
+
+
+if __name__ == '__main__':
+    get_departments_mind()
+
