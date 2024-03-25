@@ -8,7 +8,7 @@
       <jdbc-url>jdbc:mysql://localhost:3306/fund_flow</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="@rm-7xv6n2公司数据库" uuid="6e9b39dd-561a-42e1-8f64-d0e5f3bb7d56">
+    <data-source source="LOCAL" name="公司数据库" uuid="25dddc23-ec43-4f33-83cc-c6edd9de7a7b">
       <driver-ref>mysql.8</driver-ref>
       <synchronize>true</synchronize>
       <remarks>公司数据库</remarks>
