@@ -21,7 +21,7 @@ def excute_pys():
         else:       # 不是同一个日期则代表今天还未访问过，status置True
             knife['status'] = True
         # 每天 9:30 - 10:30启动，每天启动一次
-        if knife['status'] and (9 <= today_date.hour and 30 <= today_date.minute) and (today_date.hour <= 10 and today_date.minute <= 30):
+        if knife['status'] and (9 <= today_date.hour <= 10 and 30 <= today_date.minute) or (today_date.hour <= 10 and today_date.minute <= 30):
             if is_workday(today_date) and today_week < 5:
                 # 查找上一个符合这个条件的日期
                 last_date = today_date - datetime.timedelta(days=1)
