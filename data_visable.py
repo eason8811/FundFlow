@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-
+from chinese_calendar import is_workday
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -153,13 +153,13 @@ def create_graph():
 
     # 进行可视化(amount)
     plt.clf()
-    fig = plt.figure(figsize=(30, 175))
-    spec = fig.add_gridspec(nrows=30, ncols=3)
+    fig = plt.figure(figsize=(31, 175))
+    spec = fig.add_gridspec(nrows=31, ncols=3)
     fig.suptitle(f'板块资金流向分析\n{time.strftime("%Y-%m-%d", time.localtime())}', fontsize=80)
     days_num = 0  # 参与统计的天数
-    for i in tqdm(range(30)):
+    for i in tqdm(range(31)):
         for j in range(3):
-            if i < 1:
+            if i == 0:
                 ax = fig.add_subplot(spec[0, 1])
                 ax.get_yaxis().set_visible(False)
                 ax.get_xaxis().set_visible(False)
@@ -175,8 +175,67 @@ def create_graph():
                 t.set_fontsize(20)
                 t.scale(4.25, 2)
                 break
+
+            if i == 1:
+                output = []
+                end_time = 0
+                start_time = 0
+                for part in tqdm(part_list):
+                    sql = 'select distinct unixTime from department_stock_info order by unixTime desc limit 15;'
+                    cursor.execute(sql)
+                    result = list(map(lambda x: x[0], cursor.fetchall()))
+                    for date_i in range(len(result)):
+                        if result[date_i] - result[date_i + 1] > 24 * 60 * 60:
+                            end_time = result[date_i + 1]
+                            start_time = result[date_i+1+5-1]
+                            break
+                    # sql = "select sum(daily_holding_amount) from department_stock_info where belong_part = %s and unixTime <= %s and unixTime >= %s;"
+                    sql = "select sum(daily_holding_amount) from department_stock_info where belong_part = %s and unixTime = %s;"
+                    cursor.execute(sql, (part, end_time,))
+                    result_end = round(cursor.fetchone()[0] / 1000000000000, 4)
+                    cursor.execute(sql, (part, start_time,))
+                    result_start = round(cursor.fetchone()[0] / 1000000000000, 4)
+                    output.append([part, result_start, result_end - result_start, result_end])
+                df_output = pd.DataFrame(output, columns=['板块', '初始值', '增加值', '结束值']).sort_values(
+                    by='增加值', ascending=False)
+                df_output_top10 = df_output.iloc[:10, :]
+                df_output_bottom10 = df_output.iloc[-10:, :].sort_values(by='增加值', ascending=True)
+                table_label = ['板块名称', '总持股数周初值(亿)', '总持股数增加值(亿)', '总持股数周末值(亿)']
+                ax = fig.add_subplot(spec[1, 0])
+                ax.set_title(f'每周增持榜  {time.strftime("%Y-%m-%d", time.localtime(start_time))} 至 '
+                             f'{time.strftime("%Y-%m-%d", time.localtime(end_time))}', fontsize=30)
+                ax.get_yaxis().set_visible(False)
+                ax.get_xaxis().set_visible(False)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.spines['bottom'].set_visible(False)
+                ax.spines['left'].set_visible(False)
+                # np_week_hold_table = np.hstack((np.array(df_output_top10), np.array(df_output_bottom10)))
+                t = ax.table(cellText=np.array(df_output_top10), colLabels=table_label, loc='center',
+                             cellLoc='center', colColours=['#EE2C2C' for _ in range(len(table_label))])
+                t.auto_set_font_size(False)
+                t.set_fontsize(20)
+                t.scale(1.5, 2)
+
+                ax = fig.add_subplot(spec[1, 2])
+                ax.set_title(f'每周减持榜  {time.strftime("%Y-%m-%d", time.localtime(start_time))} 至 '
+                             f'{time.strftime("%Y-%m-%d", time.localtime(end_time))}', fontsize=30)
+                ax.get_yaxis().set_visible(False)
+                ax.get_xaxis().set_visible(False)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.spines['bottom'].set_visible(False)
+                ax.spines['left'].set_visible(False)
+                # np_week_hold_table = np.hstack((np.array(df_output_top10), np.array(df_output_bottom10)))
+                t = ax.table(cellText=np.array(df_output_bottom10), colLabels=table_label, loc='center',
+                             cellLoc='center', colColours=['#00cc99' for _ in range(len(table_label))])
+                t.auto_set_font_size(False)
+                t.set_fontsize(20)
+                t.scale(1.5, 2)
+                break
+
             # ax[0, 1].set_title(f'当日外资持仓情况', fontsize=30)
-            if i == 1 and j == 0:
+            if i == 2 and j == 0:
                 ax = fig.add_subplot(spec[i, j])
                 ax.set_title(f'图例', fontsize=30)
                 ax.get_yaxis().set_visible(False)
@@ -185,16 +244,16 @@ def create_graph():
                 line2, = ax.plot([], label='持股市值比例', color='orange')
                 ax.legend(handles=[line1, line2], loc='center', fontsize=30, frameon=False)  # ['总持股股数', '持股市值比例']
                 continue
-            if (i - 1) * 3 + j - 1 >= len(list(total_amount_parts.keys())):
+            if (i - 2) * 3 + j - 1 >= len(list(total_amount_parts.keys())):
                 break
             temp = []
-            for m in total_amount_parts[part_list[(i - 1) * 3 + j - 1]].index:
+            for m in total_amount_parts[part_list[(i - 2) * 3 + j - 1]].index:
                 temp.append(datetime.strftime(m, "%Y-%m-%d"))
             ax = fig.add_subplot(spec[i, j])
             ax_kline = ax.twinx()
             temp_i = 0
             color_list = ['#FF0000', '#2E8B57']  # [红色, 绿色]
-            for kline in klines_parts[part_list[(i - 1) * 3 + j - 1]].values[-len(temp):]:
+            for kline in klines_parts[part_list[(i - 2) * 3 + j - 1]].values[-len(temp):]:
                 kline_open = kline[1]
                 kline_close = kline[2]
                 kline_high = kline[3]
@@ -210,18 +269,18 @@ def create_graph():
                              bottom=min(kline_open, kline_close), color=color, width=0.5, align='center', alpha=0.85)
                 ax_kline.get_yaxis().set_visible(False)
                 temp_i += 1
-            ax.plot(temp, total_amount_parts[part_list[(i - 1) * 3 + j - 1]], color='#4169E1')
-            ax.set_title(f'{part_list[(i - 1) * 3 + j - 1]}', fontsize=30)
+            ax.plot(temp, total_amount_parts[part_list[(i - 2) * 3 + j - 1]], color='#4169E1')
+            ax.set_title(f'{part_list[(i - 2) * 3 + j - 1]}', fontsize=30)
             ax.set_ylabel('总持股数', loc='top', fontsize=16)
             # ax[i, j].spines['right'].set_visible(False)  # ax右轴隐藏
             ax_rate = ax.twinx()  # 创建与轴群ax共享x轴的轴群
-            ax_rate.plot(temp, total_value_parts_rate[part_list[(i - 1) * 3 + j - 1]], color='orange')
+            ax_rate.plot(temp, total_value_parts_rate[part_list[(i - 2) * 3 + j - 1]], color='orange')
             ax_rate.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1, decimals=2))
             ax_rate.set_ylabel('持股市值比例', loc='top', fontsize=16)
-            rate_max = max(total_value_parts_rate[part_list[(i - 1) * 3 + j - 1]])
-            rate_min = min(total_value_parts_rate[part_list[(i - 1) * 3 + j - 1]])
-            amount_max = max(total_amount_parts[part_list[(i - 1) * 3 + j - 1]].values)
-            amount_min = min(total_amount_parts[part_list[(i - 1) * 3 + j - 1]].values)
+            rate_max = max(total_value_parts_rate[part_list[(i - 2) * 3 + j - 1]])
+            rate_min = min(total_value_parts_rate[part_list[(i - 2) * 3 + j - 1]])
+            amount_max = max(total_amount_parts[part_list[(i - 2) * 3 + j - 1]].values)
+            amount_min = min(total_amount_parts[part_list[(i - 2) * 3 + j - 1]].values)
             ax_rate.set_ylim(bottom=rate_min * (1 - 0.15), top=rate_max * (1 + 0.15))
             ax.set_ylim(bottom=amount_min * (1 - 0.15), top=amount_max * (1 + 0.15))
             ax.set_xticks(temp[::len(temp) // 6])
@@ -243,11 +302,13 @@ def create_graph():
                                    index_label=list(df_total_amount_parts.index),
                                    sheet_name='总持股数')
     df_total_value_parts_rate = pd.DataFrame(total_value_parts_rate)
-    df_total_value_parts_rate.to_excel(f'E:\\公司项目\\FundFlow\\The proportion of total market value in {days_num} days.xlsx',
-                                       columns=list(df_total_value_parts_rate.columns),
-                                       index_label=list(df_total_value_parts_rate.index),
-                                       sheet_name='总市值占比')
+    df_total_value_parts_rate.to_excel(
+        f'E:\\公司项目\\FundFlow\\The proportion of total market value in {days_num} days.xlsx',
+        columns=list(df_total_value_parts_rate.columns),
+        index_label=list(df_total_value_parts_rate.index),
+        sheet_name='总市值占比')
     print('已完成')
+
 
 if __name__ == '__main__':
     create_graph()
