@@ -153,7 +153,7 @@ def create_graph():
 
     # 进行可视化(amount)
     plt.clf()
-    fig = plt.figure(figsize=(31, 175))
+    fig = plt.figure(figsize=(32, 175))
     spec = fig.add_gridspec(nrows=31, ncols=3)
     fig.suptitle(f'板块资金流向分析\n{time.strftime("%Y-%m-%d", time.localtime())}', fontsize=80)
     days_num = 0  # 参与统计的天数
@@ -187,20 +187,30 @@ def create_graph():
                     for date_i in range(len(result)):
                         if result[date_i] - result[date_i + 1] > 24 * 60 * 60:
                             end_time = result[date_i + 1]
-                            start_time = result[date_i+1+5-1]
+                            start_time = result[date_i + 1 + 5 - 1]
                             break
                     # sql = "select sum(daily_holding_amount) from department_stock_info where belong_part = %s and unixTime <= %s and unixTime >= %s;"
                     sql = "select sum(daily_holding_amount) from department_stock_info where belong_part = %s and unixTime = %s;"
                     cursor.execute(sql, (part, end_time,))
-                    result_end = round(cursor.fetchone()[0] / 1000000000000, 4)
+                    result_end_amount = round(cursor.fetchone()[0] / 1000000000000, 2)
                     cursor.execute(sql, (part, start_time,))
-                    result_start = round(cursor.fetchone()[0] / 1000000000000, 4)
-                    output.append([part, result_start, result_end - result_start, result_end])
-                df_output = pd.DataFrame(output, columns=['板块', '初始值', '增加值', '结束值']).sort_values(
-                    by='增加值', ascending=False)
-                df_output_top10 = df_output.iloc[:10, :]
-                df_output_bottom10 = df_output.iloc[-10:, :].sort_values(by='增加值', ascending=True)
-                table_label = ['板块名称', '总持股数周初值(亿)', '总持股数增加值(亿)', '总持股数周末值(亿)']
+                    result_start_amount = round(cursor.fetchone()[0] / 1000000000000, 2)
+                    sql = "select sum(daily_holding_value) from department_stock_info where belong_part = %s and unixTime = %s;"
+                    cursor.execute(sql, (part, end_time,))
+                    result_end_value = round(cursor.fetchone()[0] / 1000000000000, 2)
+                    cursor.execute(sql, (part, start_time,))
+                    result_start_value = round(cursor.fetchone()[0] / 1000000000000, 2)
+
+                    output.append([part,
+                                   str(result_start_amount) + '亿/' + str(result_start_value) + '亿',
+                                   str(result_end_amount - result_start_amount) + '亿/' + str(
+                                       result_end_value - result_start_value) + '亿',
+                                   str(result_end_amount) + '亿/' + str(result_end_value) + '亿', result_end_amount - result_start_amount])
+                df_output = pd.DataFrame(output, columns=['板块', '初始值', '增加值', '结束值', 'sort']).sort_values(
+                    by='sort', ascending=False)
+                df_output_top10 = df_output.iloc[:10, :-1]
+                df_output_bottom10 = df_output.sort_values(by='sort', ascending=True).iloc[:10, :-1]
+                table_label = ['板块名称', '总持股数/总市值周初值', '总持股数/总市值增加值', '总持股数/总市值周末值']
                 ax = fig.add_subplot(spec[1, 0])
                 ax.set_title(f'每周增持榜  {time.strftime("%Y-%m-%d", time.localtime(start_time))} 至 '
                              f'{time.strftime("%Y-%m-%d", time.localtime(end_time))}', fontsize=30)
@@ -215,7 +225,7 @@ def create_graph():
                              cellLoc='center', colColours=['#EE2C2C' for _ in range(len(table_label))])
                 t.auto_set_font_size(False)
                 t.set_fontsize(20)
-                t.scale(1.5, 2)
+                t.scale(1.8, 2)
 
                 ax = fig.add_subplot(spec[1, 2])
                 ax.set_title(f'每周减持榜  {time.strftime("%Y-%m-%d", time.localtime(start_time))} 至 '
@@ -231,7 +241,7 @@ def create_graph():
                              cellLoc='center', colColours=['#00cc99' for _ in range(len(table_label))])
                 t.auto_set_font_size(False)
                 t.set_fontsize(20)
-                t.scale(1.5, 2)
+                t.scale(1.8, 2)
                 break
 
             # ax[0, 1].set_title(f'当日外资持仓情况', fontsize=30)
