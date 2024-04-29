@@ -184,6 +184,7 @@ def create_graph():
                     sql = 'select distinct unixTime from department_stock_info order by unixTime desc limit 15;'
                     cursor.execute(sql)
                     result = list(map(lambda x: x[0], cursor.fetchall()))
+                    result.insert(0, int(time.mktime(time.localtime())) // (24 * 60 * 60) * (24 * 60 * 60))
                     for date_i in range(len(result)):
                         if result[date_i] - result[date_i + 1] > 24 * 60 * 60:
                             end_time = result[date_i + 1]
@@ -205,7 +206,8 @@ def create_graph():
                                    str(result_start_amount) + '亿/' + str(result_start_value) + '亿',
                                    str(result_end_amount - result_start_amount) + '亿/' + str(
                                        result_end_value - result_start_value) + '亿',
-                                   str(result_end_amount) + '亿/' + str(result_end_value) + '亿', result_end_amount - result_start_amount])
+                                   str(result_end_amount) + '亿/' + str(result_end_value) + '亿',
+                                   result_end_amount - result_start_amount])
                 df_output = pd.DataFrame(output, columns=['板块', '初始值', '增加值', '结束值', 'sort']).sort_values(
                     by='sort', ascending=False)
                 df_output_top10 = df_output.iloc[:10, :-1]
